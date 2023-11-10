@@ -1,0 +1,69 @@
+<!-- Create a UserID Token and save it for 5 years, all other cookies will be set to 15 min (Change if u want/need to)-->
+
+
+<?php
+session_start();
+
+$UserIDTokenLifespan = 157680000; // User ID Token Lifespan in seconds
+$OtherTokensLifespan = 900; // Other Tokens Lifespan in seconds
+$UserIDTokenLength = 32; // User ID Token Length in characters
+
+$blacklistURL = 'https://raw.githubusercontent.com/B0tCreati0n/Banned-Words/main/bad-words.txt'; // Banned words in User ID Token
+
+// Read the blacklist from a text file
+$blacklist = file($blacklistURL, FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
+function generateRandomString($UserIDTokenLength, $blacklist) {
+    $characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+    $newRandomString = '';
+
+    do {
+        $newRandomString = '';
+        for ($i = 0; $i < $UserIDTokenLength; $i++) {
+            $newRandomString .= $characters[rand(0, strlen($characters) - 1)];
+        }
+    } while (checkBlacklist($newRandomString, $blacklist));
+
+    return $newRandomString;
+}
+
+function checkBlacklist($string, $blacklist) {
+    foreach ($blacklist as $word) {
+        if (strpos($string, $word) !== false) {
+            return true;
+        }
+    }
+    return false;
+}
+
+$randomString = generateRandomString($UserIDTokenLength, $blacklist);
+
+// Session token to keep
+$sessionToKeep = 'B0tUserIdToken';
+
+if (!isset($_SESSION[$sessionToKeep])) {
+    $_SESSION[$sessionToKeep] = $randomString;
+}
+
+// Set the lifespan for the specified session token
+$_SESSION[$sessionToKeep.'_expires'] = time() + $UserIDTokenLifespan;
+
+// Loop through all session variables
+foreach ($_SESSION as $key => $value) {
+    // Check if the variable name is not the one you want to keep
+    if ($key !== $sessionToKeep.'_expires') {
+        // Set the default lifespan to 900 seconds for other session variables
+        $_SESSION[$key.'_expires'] = time() + $OtherTokensLifespan;
+        
+        // Unset the session variable if it exceeds the default lifespan
+        if ($_SESSION[$key.'_expires'] < time()) {
+            unset($_SESSION[$key]);
+        }   
+    }
+}
+
+// Destroy the session if the specified token exceeds its lifespan
+if ($_SESSION[$sessionToKeep.'_expires'] < time()) {
+    session_destroy();
+}
+
+?>
